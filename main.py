@@ -180,7 +180,8 @@ if __name__ == "__main__":
     bot_thread.start()
 
     # Start the Flask app on port 9000
-    app.run(debug=True, host="0.0.0.0", port=9000)
+    custom_port = os.getenv("PORT")
+    app.run(debug=True, host="0.0.0.0", port=custom_port)
 
 
 # class aclient(discord.Client):
