@@ -52,7 +52,7 @@ async def play_1(ctx):
 
     voice_client.volume = 0.45
     voice_client.play(
-        discord.FFmpegPCMAudio(executable="audio-orchestrator-ffmpeg/bin/ffmpeg", source="https://stream-relay-geo.ntslive.net/stream"))
+        discord.FFmpegPCMAudio(source="https://stream-relay-geo.ntslive.net/stream"))
 
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="NTS 1"))
     await ctx.defer()
@@ -79,7 +79,7 @@ async def play_2(ctx):
 
     voice_client.volume = 0.5
     voice_client.play(
-        discord.FFmpegPCMAudio(executable="audio-orchestrator-ffmpeg/bin/ffmpeg", source="https://stream-relay-geo.ntslive.net/stream2"))
+        discord.FFmpegPCMAudio(source="https://stream-relay-geo.ntslive.net/stream2"))
 
     await ctx.defer()
     info = await fetch_nts(selected_nts="nts2")
