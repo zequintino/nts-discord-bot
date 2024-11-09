@@ -3,7 +3,6 @@ import discord
 
 from dotenv import load_dotenv
 from discord.ext import commands
-from discord import app_commands
 from playwright.async_api import async_playwright
 from flask import Flask
 from threading import Thread
@@ -26,15 +25,15 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     try:
-        await bot.tree.sync()  # Ensures all hybrid commands are synced to Discord
+        await bot.tree.sync()
         print("Commands synced successfully.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
 
 
 
-@bot.hybrid_command(name="play_1", help="Live now 1", description="Live now 1")
-async def play_1(ctx):
+@bot.hybrid_command(name="live_on_1", help="live on 1", description="live on 1")
+async def live_on_1(ctx):
     if ctx.author.voice is None:
         await ctx.send("malhuco! you are not in a voice channel.")
         return
@@ -54,14 +53,15 @@ async def play_1(ctx):
     voice_client.play(
         discord.FFmpegPCMAudio(source="https://stream-relay-geo.ntslive.net/stream"))
 
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="NTS 1"))
+    await bot.change_presence(
+        activity=discord.Activity(type=discord.ActivityType.listening, name="NTS 1"))
     await ctx.defer()
     info = await fetch_nts(selected_nts="nts1")
     await ctx.send(info, ephemeral=False)
 
 
-@bot.hybrid_command(name="play_2", help="Live now 2", description="Live now 2")
-async def play_2(ctx):
+@bot.hybrid_command(name="live_on_2", help="live on 2", description="live on 2")
+async def live_on_2(ctx):
     if ctx.author.voice is None:
         await ctx.send("malhuco! you are not in a voice channel.")
         return
@@ -126,16 +126,6 @@ async def live_now(ctx):
     await ctx.send(f"𝘕𝘛𝘚 ｜ Don't Assume\n{live_now_1}\n{live_now_2}", ephemeral=False)
 
 
-@bot.command()
-async def nts1info(ctx):
-    await ctx.send(await fetch_nts(selected_nts="nts1"))
-
-
-@bot.command()
-async def nts2info(ctx):
-    await ctx.send(await fetch_nts(selected_nts="nts2"))
-
-
 async def fetch_nts(selected_nts):
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -182,31 +172,3 @@ if __name__ == "__main__":
     # Start the Flask app on port 9000
     custom_port = os.getenv("PORT")
     app.run(debug=True, host="0.0.0.0", port=custom_port)
-
-
-# class aclient(discord.Client):
-#     def __init__(self):
-#         super().__init__(intents=discord.Intents.default())
-#         self.synced = False  # syncs just one time
-
-#     async def on_ready(self):
-#         await self.wait_until_ready()
-#         if not self.synced:
-#             await tree.sync()
-#             self.synced = True
-#         print(f"We have logged in as {self.user}.")
-
-# client = aclient()
-# tree = app_commands.CommandTree(client)
-
-# @tree.command(name='tester', description='testing')
-# async def slash1(interaction: discord.Interaction):
-#     await intera
-
-# @bot.hybrid_command(name="test", description="testing hybrid commands")
-# async def test(ctx: commands.Context):
-#     await ctx.defer()
-#     nts_1_info = await fetch_nts(selected_nts="nts1")
-#     nts_2_info = await fetch_nts(selected_nts="nts2")
-#     await ctx.send(f"{nts_1_info}\n{nts_2_info}", ephemeral=False)
-    
