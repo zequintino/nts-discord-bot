@@ -1,14 +1,14 @@
-[phases.setup]
-nixPkgs = ["python313"]
-cmds = ["apt-get update", "apt-get install -y libopus-dev ffmpeg"]
+# [phases.setup]
+# nixPkgs = ["python313"]
+# cmds = ["apt-get update", "apt-get install -y libopus-dev ffmpeg"]
 
-[variables]
-PYTHON_VERSION = "3.13"
+# [variables]
+# PYTHON_VERSION = "3.13"
 
 # Set environment variables to help locate opus libraries
-[phases.setup.env]
-LIBOPUS_PATH = "$(find /usr/lib -name 'libopus.so*' | head -n 1)"
+# [phases.setup.env]
+# LIBOPUS_PATH = "$(find /usr/lib -name 'libopus.so*' | head -n 1)"
 
-[start]
-cmd = "python main.py"
+# [start]
+# cmd = "python main.py"
 

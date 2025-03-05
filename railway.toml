@@ -1,12 +1,12 @@
 [build]
-builder = "nixpacks"
-buildCommand = "pip install -r requirements.txt"
+# builder = "nixpacks"
+# buildCommand = "pip install -r requirements.txt"
 
-#[deploy]
-#startCommand = "python main.py"
-#healthcheckPath = "/"
-#healthcheckTimeout = 100
+# [deploy]
+# startCommand = "python main.py"
+# healthcheckPath = "/"
+# healthcheckTimeout = 100
 
-[variables]
-PYTHON_VERSION = "3.13"
+# [variables]
+# PYTHON_VERSION = "3.13"
 
