@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from discord.ext import commands
 import aiohttp
 import json
+import html
 
 # Load Opus library for voice support
 if not discord.opus.is_loaded():
@@ -64,7 +65,7 @@ async def on_ready():
 @bot.hybrid_command(name="live_on_1", help="live on 1", description="live on 1")
 async def live_on_1(ctx):
     if ctx.author.voice is None:
-        await ctx.send("malhuco! you are not in a voice channel.")
+        await ctx.send("You're not in a voice channel.")
         return
 
     channel = ctx.author.voice.channel
@@ -93,7 +94,7 @@ async def live_on_1(ctx):
 @bot.hybrid_command(name="live_on_2", help="live on 2", description="live on 2")
 async def live_on_2(ctx):
     if ctx.author.voice is None:
-        await ctx.send("malhuco! you are not in a voice channel.")
+        await ctx.send("You're not in a voice channel.")
         return
 
     channel = ctx.author.voice.channel
@@ -173,6 +174,11 @@ async def fetch_nts_info(channel):
                         show_name = channel_data.get('now', {}).get('broadcast_title', 'Unknown Show')
                         location_short = channel_data.get('now', {}).get('embeds', {}).get('details', {}).get('location_short')
                         location_long = channel_data.get('now', {}).get('embeds', {}).get('details', {}).get('location_long')
+                        
+                        # Decode HTML entities in show name and locations
+                        show_name = html.unescape(show_name) if show_name else 'Unknown Show'
+                        location_short = html.unescape(location_short) if location_short else None
+                        location_long = html.unescape(location_long) if location_long else None
                         
                         # Use the short location if available, otherwise use long location
                         location = location_short or location_long or "Unknown Location"
