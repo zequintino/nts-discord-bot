@@ -1,204 +1,54 @@
+"""
+NTS Discord Bot - Main entry point
+A Discord bot that streams NTS Radio channels in voice channels.
+"""
 import os
 import discord
 from dotenv import load_dotenv
 from discord.ext import commands
-import aiohttp
-import json
-import html
+from src.utils.opus_loader import load_opus
 
-# Load Opus library for voice support
-if not discord.opus.is_loaded():
-    # Try to find the opus library
-    opus_library_paths = [
-        # Check environment variable first
-        os.getenv('OPUS_LIBRARY_PATH'),
-        # Linux paths
-        '/usr/lib/x86_64-linux-gnu/libopus.so.0',
-        '/usr/lib/libopus.so.0',
-        '/usr/local/lib/libopus.so.0',
-        # macOS Homebrew path
-        '/opt/homebrew/Cellar/opus/1.5.2/lib/libopus.dylib',
-        # macOS paths
-        '/usr/local/lib/libopus.dylib',
-        # Windows paths
-        'opus.dll',
-        # Railway nixpacks paths
-        '/nix/store/libopus/lib/libopus.so.0',
-        '/root/.nix-profile/lib/libopus.so.0'
-    ]
-    
-    opus_loaded = False
-    for path in opus_library_paths:
-        if path is not None:
-            try:
-                discord.opus.load_opus(path)
-                print(f"Successfully loaded Opus from: {path}")
-                opus_loaded = True
-                break
-            except (OSError, TypeError) as e:
-                print(f"Failed to load Opus from {path}: {e}")
-    
-    if not opus_loaded:
-        print("Warning: Could not load Opus library. Voice functionality will be unavailable.")
-else:
-    print("Opus library is already loaded")
-
+# Load environment variables
 load_dotenv()
 
+# Load Opus for voice support
+load_opus()
+
+# Set up intents for the bot
 intents = discord.Intents.default()
 intents.message_content = True
 
+# Initialize the bot with command prefix and intents
 bot = commands.Bot(command_prefix='/', intents=intents)
 
 
 @bot.event
 async def on_ready():
+    """Event triggered when the bot is ready and connected to Discord."""
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    
+    # Load cogs
+    try:
+        await bot.load_extension('src.cogs.radio')
+        print("Radio commands cog loaded successfully.")
+    except Exception as e:
+        print(f"Error loading Radio cog: {e}")
+    
+    # Sync application commands
     try:
         await bot.tree.sync()
         print("Commands synced successfully.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
-
-
-
-@bot.hybrid_command(name="live_on_1", help="live on 1", description="live on 1")
-async def live_on_1(ctx):
-    if ctx.author.voice is None:
-        await ctx.send("You're not in a voice channel.")
-        return
-
-    channel = ctx.author.voice.channel
-    voice_client = ctx.voice_client
-
-    if voice_client and voice_client.is_connected():
-        await voice_client.move_to(channel)
-    else:
-        voice_client = await channel.connect()
-
-    if voice_client and voice_client.is_playing():
-        voice_client.pause()
-
-    voice_client.volume = 0.45
-    voice_client.play(
-        discord.FFmpegPCMAudio(
-            executable="ffmpeg", source="https://stream-relay-geo.ntslive.net/stream"))
-
-    await bot.change_presence(
-        activity=discord.Activity(type=discord.ActivityType.listening, name="NTS 1"))
-    await ctx.defer()
-    info = await fetch_nts_info(channel=1)
-    await ctx.send(info, ephemeral=False)
-
-
-@bot.hybrid_command(name="live_on_2", help="live on 2", description="live on 2")
-async def live_on_2(ctx):
-    if ctx.author.voice is None:
-        await ctx.send("You're not in a voice channel.")
-        return
-
-    channel = ctx.author.voice.channel
-    voice_client = ctx.voice_client
-
-    if voice_client and voice_client.is_connected():
-        await voice_client.move_to(channel)
-    else:
-        voice_client = await channel.connect()
-
-    if voice_client and voice_client.is_playing():
-        voice_client.pause()
-
-    voice_client.volume = 0.5
-    voice_client.play(
-        discord.FFmpegPCMAudio(
-            executable="ffmpeg", source="https://stream-relay-geo.ntslive.net/stream2"))
-
-    await ctx.defer()
-    info = await fetch_nts_info(channel=2)
-    await ctx.send(info, ephemeral=False)
-
-
-@bot.hybrid_command(name="stop_now", help="Stop the streaming and disconnect", description="Stop and disconnect")
-async def stop_now(ctx):
-    voice_client = ctx.voice_client
-
-    if voice_client and voice_client.is_playing():
-        voice_client.stop()
-        await ctx.send("Playback stopped.")
-
-    if voice_client:
-        await voice_client.disconnect()
-        await ctx.send("Disconnected from the voice channel.")
-    else:
-        await ctx.send("Bot is not in a voice channel.")
-
-    await bot.change_presence(activity=None)
-
-
-@bot.hybrid_command(name="pause_now", help="Pause the current playback", description="Pause streaming")
-async def pause_now(ctx):
-    voice_client = ctx.voice_client
-
-    if voice_client is None:
-        await ctx.send("I'm not in a voice channel.")
-        return
-
-    if voice_client.is_playing():
-        voice_client.pause()
-        await ctx.send("Paused playback.")
-    else:
-        await ctx.send("There's nothing playing to pause.")
-
-
-@bot.hybrid_command(name="live_now", help="Live info", description="Live info")
-async def live_now(ctx):
-    await ctx.defer()
-    live_now_1 = await fetch_nts_info(channel=1)
-    live_now_2 = await fetch_nts_info(channel=2)
-    await ctx.send(f"𝘕𝘛𝘚 ｜ Don't Assume\n{live_now_1}\n{live_now_2}", ephemeral=False)
-
-
-async def fetch_nts_info(channel):
-    """Fetch NTS live information from the API"""
-    async with aiohttp.ClientSession() as session:
-        async with session.get('https://www.nts.live/api/v2/live') as response:
-            if response.status == 200:
-                data = await response.json()
-                try:
-                    # API response has channels indexed from 0
-                    channel_idx = channel - 1
-                    
-                    # Parse the data correctly based on the actual API structure
-                    if 'results' in data and isinstance(data['results'], list) and len(data['results']) > channel_idx:
-                        channel_data = data['results'][channel_idx]
-                        show_name = channel_data.get('now', {}).get('broadcast_title', 'Unknown Show')
-                        location_short = channel_data.get('now', {}).get('embeds', {}).get('details', {}).get('location_short')
-                        location_long = channel_data.get('now', {}).get('embeds', {}).get('details', {}).get('location_long')
-                        
-                        # Decode HTML entities in show name and locations
-                        show_name = html.unescape(show_name) if show_name else 'Unknown Show'
-                        location_short = html.unescape(location_short) if location_short else None
-                        location_long = html.unescape(location_long) if location_long else None
-                        
-                        # Use the short location if available, otherwise use long location
-                        location = location_short or location_long or "Unknown Location"
-                        
-                        channel_symbol = "１ ▶︎" if channel == 1 else "２ ▶︎"
-                        return f"{channel_symbol}  {show_name}  －  {location}"
-                    else:
-                        print(f"Unexpected API structure: {json.dumps(data, indent=2)[:500]}...")
-                        return f"Could not parse NTS {channel} data (unexpected structure)"
-                except (KeyError, IndexError, TypeError) as e:
-                    print(f"Error parsing NTS data: {str(e)}")
-                    print(f"API structure: {type(data['results'])}")
-                    return f"Error retrieving NTS {channel} info: {str(e)}"
-            else:
-                return f"Failed to fetch NTS data. Status code: {response.status}"
+    
+    print("Bot is ready!")
 
 
 if __name__ == "__main__":
+    # Get Discord API token from environment variable
     token = os.getenv("DISCORD_API_TOKEN")
     if not token:
-        raise Exception("No API Token available")
+        raise Exception("No Discord API Token available. Please set the DISCORD_API_TOKEN environment variable.")
     else:
+        # Start the bot
         bot.run(token)

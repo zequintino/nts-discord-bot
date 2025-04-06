@@ -1,0 +1,3 @@
+"""
+NTS Discord Bot package.
+"""
