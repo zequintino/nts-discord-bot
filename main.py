@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from discord.ext import commands
 from src.utils.opus_loader import load_opus
 
+
 # Load environment variables
 load_dotenv()
 
@@ -34,6 +35,13 @@ async def on_ready():
     except Exception as e:
         print(f"Error loading Radio cog: {e}")
     
+    # Load voice manager cog for auto-disconnect functionality
+    try:
+        await bot.load_extension('src.cogs.voice_manager')
+        print("Voice manager cog loaded successfully.")
+    except Exception as e:
+        print(f"Error loading Voice Manager cog: {e}")
+    
     # Sync application commands
     try:
         await bot.tree.sync()
@@ -41,14 +49,14 @@ async def on_ready():
     except Exception as e:
         print(f"Error syncing commands: {e}")
     
-    print("Bot is ready!")
+    invite_url = f"https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=3145728&scope=bot%20applications.commands"
+    print(f"Invite URL: {invite_url}")
+    
 
 
 if __name__ == "__main__":
-    # Get Discord API token from environment variable
     token = os.getenv("DISCORD_API_TOKEN")
     if not token:
         raise Exception("No Discord API Token available. Please set the DISCORD_API_TOKEN environment variable.")
     else:
-        # Start the bot
         bot.run(token)

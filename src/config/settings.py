@@ -13,3 +13,9 @@ BOT_DEFAULT_VOLUME_2 = 0.4
 
 # Messages
 BOT_HEADER = "𝘕𝘛𝘚 ｜ Don't Assume"
+
+# FFMPEG options for streaming
+FFMPEG_OPTIONS = {
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn -filter:a "volume=0.4"',
+}
