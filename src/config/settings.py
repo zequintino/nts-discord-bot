@@ -1,7 +1,3 @@
-"""
-Configuration settings for the NTS Discord Bot.
-"""
-
 # NTS Stream URLs
 NTS_STREAM_URL_1 = "https://stream-relay-geo.ntslive.net/stream"
 NTS_STREAM_URL_2 = "https://stream-relay-geo.ntslive.net/stream2"

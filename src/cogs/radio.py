@@ -6,7 +6,7 @@ import discord
 import asyncio
 from discord.ext import commands
 import logging
-from src.utils.nts_api import fetch_nts_info
+from src.utils.nts_api import NTSRadioInfo
 from src.utils.cleanup import kill_ffmpeg_processes
 from src.config.settings import (
     NTS_STREAM_URL_1, 
@@ -81,8 +81,10 @@ class RadioCommands(commands.Cog):
         await self.bot.change_presence(
             activity=discord.Activity(type=discord.ActivityType.listening, name="NTS 1"))
         await ctx.defer()
-        info = await fetch_nts_info(channel=1)
-        await ctx.send(info, ephemeral=False)
+        
+        # Get and display show information using the new NTSRadioInfo class
+        formatted_info = await NTSRadioInfo.get_formatted_display(channel=1)
+        await ctx.send(formatted_info, ephemeral=False)
 
     @commands.hybrid_command(
         name="live_on_2",
@@ -140,8 +142,10 @@ class RadioCommands(commands.Cog):
         await self.bot.change_presence(
             activity=discord.Activity(type=discord.ActivityType.listening, name="NTS 2"))
         await ctx.defer()
-        info = await fetch_nts_info(channel=2)
-        await ctx.send(info, ephemeral=False)
+        
+        # Get and display show information using the new NTSRadioInfo class
+        formatted_info = await NTSRadioInfo.get_formatted_display(channel=2)
+        await ctx.send(formatted_info, ephemeral=False)
 
     @commands.hybrid_command(
         name="stop",
@@ -156,36 +160,37 @@ class RadioCommands(commands.Cog):
             await ctx.send("Bot is not in a voice channel.")
             return
 
-        # Acknowledge the command immediately to prevent interaction timeout
         try:
-            await ctx.defer()  # This will acknowledge the interaction
+            # Store the text channel for later use
+            text_channel = ctx.channel
             
-            # Now perform the cleanup which might take some time
+            # Acknowledge the command
+            await ctx.defer()
+            
+            # Kill FFMPEG processes first
             if voice_client.is_playing() or voice_client.is_paused():
-                # Get the source that's currently playing
-                audio_source = voice_client.source
-                if audio_source:
-                    # Use our new method to terminate the FFmpeg process properly
-                    logger.info(f"Cleaning up audio source: {audio_source}")
-                    kill_ffmpeg_processes()
-                    await asyncio.sleep(0.5)  # Wait for cleanup to complete
-                    logger.info("FFmpeg process terminated properly")
-                
-                # Now stop the playback
+                logger.info("Cleaning up FFMPEG processes")
+                kill_ffmpeg_processes()
+                await asyncio.sleep(0.5)  # Wait for cleanup
                 voice_client.stop()
-                logger.info("Playback stopped")
-                await ctx.send("Playback stopped.")
+                logger.info("Playback stopped and FFMPEG processes cleaned")
+                await text_channel.send("▶︎ Playback stopped")
             
-            # Then disconnect
-            await voice_client.disconnect(force=True)
-            logger.info("Disconnected from voice channel")
-            await ctx.send("Disconnected from the voice channel.")
-            
+            # Reset bot presence before disconnecting
             await self.bot.change_presence(activity=None)
+            
+            # Disconnect from voice
+            if voice_client.is_connected():
+                await voice_client.disconnect(force=True)
+                logger.info("Disconnected from voice channel")
+                await text_channel.send("🔌 Disconnected from voice channel")
+                # Send info about how to restart
+                await text_channel.send("Use `/live_on_1` or `/live_on_2` to start streaming again!")
+            
         except Exception as e:
             logger.error(f"Error during disconnect: {e}")
             try:
-                await ctx.send("Error during disconnect. Please try again.")
+                await ctx.send("❌ Error during disconnect. Please try again.")
             except:
                 logger.error("Failed to send error message to user")
 
@@ -237,9 +242,150 @@ class RadioCommands(commands.Cog):
     async def live_now(self, ctx):
         """Display what's currently playing on both NTS channels."""
         await ctx.defer()
-        live_now_1 = await fetch_nts_info(channel=1)
-        live_now_2 = await fetch_nts_info(channel=2)
-        await ctx.send(f"{BOT_HEADER}\n{live_now_1}\n{live_now_2}", ephemeral=False)
+        
+        # Get detailed show information for both channels
+        channel1_details = await NTSRadioInfo.get_show_details(channel=1)
+        channel2_details = await NTSRadioInfo.get_show_details(channel=2)
+        
+        # Create formatted messages
+        if channel1_details:
+            channel1_msg = f"１ ▶︎  {channel1_details['show_name']}  －  {channel1_details['location']}"
+        else:
+            channel1_msg = "１ ▶︎  Unable to retrieve show information"
+            
+        if channel2_details:
+            channel2_msg = f"２ ▶︎  {channel2_details['show_name']}  －  {channel2_details['location']}"
+        else:
+            channel2_msg = "２ ▶︎  Unable to retrieve show information"
+        
+        # Send the combined message
+        await ctx.send(f"{BOT_HEADER}\n{channel1_msg}\n{channel2_msg}", ephemeral=False)
+
+    @commands.hybrid_command(
+        name="show_details",
+        help="Display detailed information about the currently playing show",
+        description="Show detailed information about the current broadcast"
+    )
+    async def show_details(self, ctx, channel: int = 1):
+        """Display detailed information about the currently playing show on the specified channel.
+        
+        Args:
+            channel: The NTS channel number (1 or 2, defaults to 1)
+        """
+        # Validate channel input
+        if channel not in [1, 2]:
+            await ctx.send("Channel must be either 1 or 2.")
+            return
+            
+        await ctx.defer()
+        
+        # Get rich channel information
+        rich_info = await NTSRadioInfo.get_rich_channel_info(channel=channel)
+        
+        if not rich_info:
+            await ctx.send(f"Could not retrieve information for NTS {channel}.")
+            return
+            
+        # Create an embed with the rich information
+        embed = discord.Embed(
+            title=f"NTS Radio {channel} - Now Playing",
+            description=rich_info['show_name'],
+            color=discord.Color.dark_purple()
+        )
+        
+        # Add location info
+        embed.add_field(name="Location", value=rich_info['location'], inline=True)
+        
+        # Add timestamps if available
+        if rich_info.get('start_timestamp') and rich_info.get('end_timestamp'):
+            start_time = rich_info['start_timestamp'].split('T')[1].split('+')[0]
+            end_time = rich_info['end_timestamp'].split('T')[1].split('+')[0]
+            embed.add_field(name="Show Time", value=f"{start_time} - {end_time}", inline=True)
+        
+        # Add genre if available
+        if rich_info.get('details', {}).get('genre'):
+            embed.add_field(name="Genre", value=rich_info['details']['genre'], inline=True)
+        
+        # Add description if available
+        if rich_info.get('details', {}).get('description'):
+            # Truncate description if too long
+            description = rich_info['details']['description']
+            if len(description) > 1024:
+                description = description[:1021] + "..."
+            embed.add_field(name="Description", value=description, inline=False)
+        
+        # Add links if available
+        links = []
+        if rich_info.get('media', {}).get('mixcloud_url'):
+            links.append(f"[Mixcloud]({rich_info['media']['mixcloud_url']})")
+        if rich_info.get('media', {}).get('soundcloud_url'):
+            links.append(f"[SoundCloud]({rich_info['media']['soundcloud_url']})")
+        
+        if links:
+            embed.add_field(name="Listen Again", value=" | ".join(links), inline=False)
+        
+        # Set footer with episode ID if available
+        if rich_info.get('episode_id'):
+            embed.set_footer(text=f"Episode ID: {rich_info['episode_id']}")
+            
+        await ctx.send(embed=embed)
+
+    @commands.hybrid_command(
+        name="live_now_rich",
+        help="Display detailed information about currently playing shows",
+        description="Show rich details about what's playing on both NTS channels"
+    )
+    async def live_now_rich(self, ctx):
+        """Display detailed information about currently playing shows on both NTS channels."""
+        await ctx.defer()
+        
+        # Get both channels' information in a single API call
+        channel1_info, channel2_info = await NTSRadioInfo.get_both_channels_info()
+        
+        # Create an embed for the response
+        embed = discord.Embed(
+            title="NTS Radio - Now Playing",
+            description="Currently broadcasting on NTS Radio channels",
+            color=discord.Color.dark_purple()
+        )
+        
+        # Channel 1 info
+        if channel1_info:
+            embed.add_field(
+                name="Channel 1",
+                value=f"**{channel1_info['show_name']}**\n{channel1_info['location']}",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="Channel 1",
+                value="Information unavailable",
+                inline=False
+            )
+            
+        # Channel 2 info
+        if channel2_info:
+            embed.add_field(
+                name="Channel 2",
+                value=f"**{channel2_info['show_name']}**\n{channel2_info['location']}",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="Channel 2",
+                value="Information unavailable",
+                inline=False
+            )
+            
+        # Add links to listen to the channels
+        embed.add_field(
+            name="Listen Live",
+            value="Use `/live_on_1` or `/live_on_2` commands to stream in voice channel",
+            inline=False
+        )
+        
+        # Send the embed
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):
