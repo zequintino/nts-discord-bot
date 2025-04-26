@@ -1,15 +1,13 @@
 """FFMPEG process cleanup utility."""
-import os
-import signal
 import subprocess
-import psutil
-import time
 import platform
+import psutil
 
-def kill_ffmpeg_processes():
+def end_ffmpeg_processes():
     """
     Find and kill FFmpeg processes started by this bot.
     Uses a more graceful approach to process termination.
+    Discord.py FFMEPG process cleanup is not always effective.
     """
     try:
         current_process = psutil.Process()

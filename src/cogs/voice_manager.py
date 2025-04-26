@@ -4,7 +4,7 @@ Handles auto-pause and disconnect for bandwidth saving.
 """
 import asyncio
 from discord.ext import commands, tasks
-from src.utils.cleanup import kill_ffmpeg_processes
+from src.utils.cleanup import end_ffmpeg_processes
 
 class VoiceManager(commands.Cog):
     def __init__(self, bot):
@@ -70,7 +70,7 @@ class VoiceManager(commands.Cog):
         try:
             if voice_client.is_playing() or voice_client.is_paused():
                 # First kill FFMPEG processes
-                kill_ffmpeg_processes()
+                end_ffmpeg_processes()
                 await asyncio.sleep(1.0)  # Increased wait time for cleanup
                 # Then stop the voice client
                 voice_client.stop()
