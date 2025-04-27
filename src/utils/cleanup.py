@@ -1,4 +1,6 @@
-"""FFMPEG process cleanup utility."""
+"""
+FFMPEG process cleanup utility.
+"""
 import subprocess
 import platform
 import psutil
