@@ -4,18 +4,17 @@ Handles auto-pause and disconnect for bandwidth saving.
 """
 import asyncio
 from discord.ext import commands, tasks
-from src.utils.cleanup import end_ffmpeg_processes
+from src.utils.ffmpeg_cleanup import end_ffmpeg_processes
 
 class VoiceManager(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.inactive_since = {}
-        self.timeout = 60  # 1 minute timeout
+        self.timeout = 60
         self.last_command_channels = {}
         self.check_activity.start()
     
     def cog_unload(self):
-        """Clean up when cog is unloaded."""
         self.check_activity.cancel()
     
     @tasks.loop(seconds=10)
@@ -66,17 +65,13 @@ class VoiceManager(commands.Cog):
                 await self.clean_disconnect(voice_client)
     
     async def clean_audio(self, voice_client):
-        """Properly clean up audio resources."""
         try:
             if voice_client.is_playing() or voice_client.is_paused():
-                # First kill FFMPEG processes
                 end_ffmpeg_processes()
-                await asyncio.sleep(1.0)  # Increased wait time for cleanup
-                # Then stop the voice client
+                # await asyncio.sleep(1.0)
                 voice_client.stop()
-                await asyncio.sleep(0.5)  # Additional wait after stopping
+                # await asyncio.sleep(0.5)  # Additional wait after stopping
         except Exception:
-            # If cleanup fails, force stop
             try:
                 voice_client.stop()
             except Exception:

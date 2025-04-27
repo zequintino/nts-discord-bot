@@ -6,7 +6,7 @@ import discord
 from discord.ext import commands
 import logging
 from src.utils.nts_api import NTSRadioInfo
-from src.utils.cleanup import end_ffmpeg_processes
+from src.utils.ffmpeg_cleanup import end_ffmpeg_processes
 from src.config.settings import (
     NTS_STREAM_URL_1,
     NTS_STREAM_URL_2,

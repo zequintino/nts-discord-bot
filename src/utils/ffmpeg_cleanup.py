@@ -1,30 +1,23 @@
 """
 FFMPEG process cleanup utility.
+Discord.py FFMPEG process cleanup is not always effective.
 """
-import subprocess
-import platform
 import psutil
+import platform
+import subprocess
+
 
 def end_ffmpeg_processes():
-    """
-    Find and kill FFmpeg processes started by this bot.
-    Uses a more graceful approach to process termination.
-    Discord.py FFMEPG process cleanup is not always effective.
-    """
     try:
         current_process = psutil.Process()
-        
+
         def terminate_process(pid):
-            """Helper to gracefully terminate a process."""
             try:
                 process = psutil.Process(pid)
-                # First try SIGTERM
                 process.terminate()
-                # Give it some time to terminate gracefully
                 try:
                     process.wait(timeout=2)
                 except psutil.TimeoutExpired:
-                    # If it doesn't terminate, force kill
                     process.kill()
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
@@ -33,35 +26,34 @@ def end_ffmpeg_processes():
             # Windows - use tasklist to find ffmpeg processes
             cmd = ["tasklist", "/FI", "IMAGENAME eq ffmpeg.exe", "/FO", "CSV"]
             output = subprocess.check_output(cmd).decode()
-            
-            # Extract PIDs from output
+
             for line in output.strip().split('\n')[1:]:  # Skip header
                 try:
                     pid = int(line.split(',')[1].strip('"'))
                     terminate_process(pid)
                 except (IndexError, ValueError):
                     continue
-                    
+
         else:
             # Unix systems - use process tree approach
             children = current_process.children(recursive=True)
-            ffmpeg_processes = [p for p in children if p.name().lower().startswith('ffmpeg')]
-            
-            # Terminate each ffmpeg process gracefully
-            for proc in ffmpeg_processes:
-                terminate_process(proc.pid)
-                
+            ffmpeg_processes = [
+                process for process in children if process.name().lower().startswith('ffmpeg')]
+
+            for process in ffmpeg_processes:
+                terminate_process(process.pid)
+
     except Exception:
         # If all else fails, try direct command
         try:
             if platform.system() == "Windows":
-                subprocess.run(["taskkill", "/F", "/IM", "ffmpeg.exe"], 
-                             stdout=subprocess.DEVNULL, 
-                             stderr=subprocess.DEVNULL)
+                subprocess.run(["taskkill", "/F", "/IM", "ffmpeg.exe"],
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
             else:
                 subprocess.run(["pkill", "-f", "ffmpeg"],
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
+                               stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL)
         except Exception:
             pass
 
